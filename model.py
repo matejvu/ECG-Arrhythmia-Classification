@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from sklearn.discriminant_analysis import StandardScaler
 from sklearn.feature_selection import SelectKBest, VarianceThreshold, f_classif, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
-from sklearn.model_selection import cross_val_score
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, precision_score, recall_score, accuracy_score
+from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
+from sklearn.svm import SVC
 
 
 def remove_constant_features(df, target_column="diagnosis", threshold=0):    
@@ -87,27 +88,31 @@ def select_top_features(features, labels, df, heuristic="ANOVA", k=-1, verbose=F
 
     return df_selected, features_selected
 
-def test_model_performance(features, labels, clf, test_size=0.2):
+def test_model_performance(features, labels, clf, test_size=0.2, random_state=42):
 
-    indices = np.random.permutation(len(features))
-    features_shuffled = features[indices]
-    labels_shuffled = labels[indices]
+    X_train, X_test, y_train, y_test = train_test_split(
+        features, labels,
+        test_size=test_size,
+        shuffle=True,
+        random_state=random_state
+    )
 
-    # split index
-    split = int((1 - test_size) * len(features))
+    model = clf.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
 
-    train_features = features_shuffled[:split]
-    test_features  = features_shuffled[split:]
-    train_labels   = labels_shuffled[:split]
-    test_labels    = labels_shuffled[split:]
+    acc = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, zero_division=0)
+    recall = recall_score(y_test, y_pred, zero_division=0)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-10)
 
-    # train + evaluate
-    model = clf.fit(train_features, train_labels)
-    accuracy = model.score(test_features, test_labels)
+    print(f"//=====TEST SCORES====\\\\")
+    print(f"|| Accuracy : {acc:.4f}  ||")
+    print(f"|| Precision: {precision:.4f}  ||")
+    print(f"|| Recall   : {recall:.4f}  ||")
+    print(f"|| F1 Score : {f1:.4f}  ||")
+    print(f"\\\\====================//")
 
-    print(f"Test accuracy: {accuracy:.4f}")
-
-    return accuracy
+    return acc, precision, recall, f1
 
 
 if __name__ == "__main__":
@@ -159,9 +164,9 @@ if __name__ == "__main__":
     # print("Cross-validation scores:")
     # print(results[0].mean())
 
-    model = pipe.fit(features_selected, labels_binary)
+    # model = pipe.fit(features_selected, labels_binary)
     # plot_cf_matrix(features_selected, labels_binary, model, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(features_selected, labels_binary, pipe)
+    # test_model_performance(features_selected, labels_binary, pipe)
 
     #Naive Bayes------------------------------------------------------------------
 
@@ -180,11 +185,45 @@ if __name__ == "__main__":
     # print("Cross-validation scores:")
     # print(results[0].mean())
 
-    model = clf.fit(features_selected, labels_binary)
+    # model = clf.fit(features_selected, labels_binary)
     # plot_cf_matrix(features_selected, labels_binary, model, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(features_selected, labels_binary, clf)
+    # test_model_performance(features_selected, labels_binary, clf)
+    
     #Support Vector Machine-------------------------------------------------------
+    results = []
+    kernels = 'rbf', 'poly', 'sigmoid'
+    kernel_opt = 'rbf'
+    Cs = np.linspace(0.1, 6, 30)#[0.01, 0.1, 1,3,5, 10]
+    Copt = 0.9
+    Ks = range(50, 120,2)#[1,2,3,5, 10, 20, 50, 100, 200 ]
+    Kopt = 100
+    
+    df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=Kopt, verbose=False)
 
+    # for kernel in kernels:
+    # for k in Ks:
+    #     df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=k, verbose=False)
+    #     r = []
+    #     # for C in Cs:
+    clf = SVC(kernel=kernel_opt, C=Copt)
+    pipe = make_pipeline(StandardScaler(), clf)
+    #     r.append(cross_val_score(pipe, features_selected, labels_binary, cv=5))
+    #     results.append(r[0])
+
+    # results = [res.mean() for res in results]
+    # plt.figure()
+    # for ind, r in enumerate(results):
+        # r = [r.mean() for r in r]
+        # plt.plot(Cs, r, label=f'kernel: {kernels[ind]}')
+    # plt.plot(Ks, results)
+    # plt.legend()
+    # plt.show()
+    # print("Cross-validation scores:")
+    # print(results[0].mean())
+
+    model = pipe.fit(features_selected, labels_binary)
+    plot_cf_matrix(features_selected, labels_binary, model, class_names=["Normal", "Arrhythmia"])
+    test_model_performance(features_selected, labels_binary, pipe)
 
 
 
