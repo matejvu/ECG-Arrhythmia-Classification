@@ -119,7 +119,6 @@ def select_top_features(features, labels, df, heuristic="ANOVA", k=-1, verbose=F
     return df_selected, features_selected
 
 def test_model_performance(X_train, X_test, y_train, y_test, clf, verbose=False):
-
     model = clf.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
@@ -138,36 +137,18 @@ def test_model_performance(X_train, X_test, y_train, y_test, clf, verbose=False)
 
     return acc, precision, recall, f1
 
-def plot_GridCV_bar(results_df):
-    plt.figure(figsize=(10, 6))
+def plot_CV_bar(x, results):
 
-    x_pos = np.arange(len(results_df))
-    C_values = results_df['param_logisticregression__C'].astype(str)
-    mean_scores = results_df['mean_test_score']
-    std_scores = results_df['std_test_score']
+    mean_score = results.mean()
+    std_score = results.std()
 
-    # Create bars
-    bars = plt.bar(x_pos, mean_scores, yerr=std_scores*2, capsize=5, 
-                alpha=0.7, color='skyblue', edgecolor='navy')
+    # Plot a single bar with appropriate text
+    bar = plt.bar([x], [mean_score], yerr=[std_score * 2], capsize=5, 
+                  alpha=0.7, color='skyblue', edgecolor='navy')[0]
 
-    # Color the best bar differently
-    best_idx = results_df['rank_test_score'].idxmin()
-    bars[best_idx].set_color('gold')
-    bars[best_idx].set_edgecolor('darkorange')
-
-    plt.xlabel('C (Regularization parameter)', fontsize=12)
-    plt.ylabel('Mean CV Score', fontsize=12)
-    plt.title('Grid Search Results - Logistic Regression', fontsize=14)
-    plt.xticks(x_pos, C_values)
-    plt.grid(True, alpha=0.3, axis='y')
-
-    # Add value labels on bars
-    for i, (score, bar) in enumerate(zip(mean_scores, bars)):
-        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
-                f'{score:.3f}', ha='center', va='bottom', fontsize=9)
-
-    plt.tight_layout()
-    plt.show()
+    # Add value label on the bar
+    plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height()/2 + 0.1*np.random.rand(),
+             f'{mean_score:.2f}', ha='center', va='bottom', fontsize=9)
 
 def plot_GridCV_line(results_df, name, best=False):
 
@@ -235,77 +216,108 @@ if __name__ == "__main__":
 
     #Logistic Regression----------------------------------------------------------
     
-    verbose = False
+    # verbose = False
 
-    Ks = range(99, 160, 10)#range(1,250, 49)
+    # Ks = range(99, 160, 10)#range(1,250, 49)
+
+    # if verbose:
+    #     print("<====== LOGISTIC REG. ======>")
+    #     plt.figure(figsize=(10, 6))
+
+    # best_model = (0,None)
+    # best_results = 0.
+
+    # for k in Ks:
+    #     df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
+
+    #     param_grid = {
+    #         'logisticregression__C': np.linspace(0.01, 0.4, 100)#[0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1, 5, 10, ]  
+    #     }
+    #     clf = LogisticRegression(random_state=42, penalty='l2', max_iter=1000)
+    #     pipe = make_pipeline(StandardScaler(), clf)
+
+    #     grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid, cv=5)
+    #     grid_search.fit(features_selected, y_train_bin)
+    #     results_df = pd.DataFrame(grid_search.cv_results_)
+
+    #     if best_results <= grid_search.best_score_:
+    #         best_results = grid_search.best_score_
+    #         best_model = (k, grid_search.best_estimator_)
+
+    #     if verbose:
+    #         plot_GridCV_line(results_df, name=f"k = {k}", best = False)
+
+    # if verbose:
+    #     plt.xlabel('$C$', fontsize=12)
+    #     plt.ylabel('Mean CV Score', fontsize=12)
+    #     plt.title('Grid Search Results - Logistic Regression', fontsize=14)
+    #     plt.grid(True, alpha=0.3)
+    #     plt.legend()
+    #     plt.tight_layout()
+    #     plt.show()
+
+    # #test best model
+    # k_opt, clf = best_model
+    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
+    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    # features_test = X_test[:, mask[:-1]]
+    # if verbose:
+    #     print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
+    #     print(f"Best C: {clf.named_steps['logisticregression'].C:.4f}")
+    #     clf.fit(features_selected, y_train_bin)
+    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
+    
+
+    #Naive Bayes------------------------------------------------------------------
+
+    verbose = True
+
+    Ks = range(1,250,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
 
     if verbose:
+        print("<======= NAIVE BAYES =======>")
         plt.figure(figsize=(10, 6))
 
-    best_model = (0,None)
+    best_model = 0
     best_results = 0.
 
     for k in Ks:
         df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
 
-        param_grid = {
-            'logisticregression__C': np.linspace(0.01, 0.4, 100)#[0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1, 5, 10, ]  
-        }
-        clf = LogisticRegression(random_state=42, penalty='l2', max_iter=1000)
-        pipe = make_pipeline(StandardScaler(), clf)
+        clf = GaussianNB()
+        scores = cross_val_score(clf, features_selected, y_train_bin, cv=5)
 
-        grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid, cv=5)
-        grid_search.fit(features_selected, y_train_bin)
-        results_df = pd.DataFrame(grid_search.cv_results_)
-
-        if best_results <= grid_search.best_score_:
-            best_results = grid_search.best_score_
-            best_model = (k, grid_search.best_estimator_)
+        if best_results <= scores.mean():
+            best_results = scores.mean()
+            best_model = k
 
         if verbose:
-            plot_GridCV_line(results_df, name=f"k = {k}", best = False)
+            plot_CV_bar(k, scores)
 
     if verbose:
-        plt.xlabel('$C$', fontsize=12)
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.xlabel('$k$', fontsize=12)
         plt.ylabel('Mean CV Score', fontsize=12)
-        plt.title('Grid Search Results - Logistic Regression', fontsize=14)
-        plt.grid(True, alpha=0.3)
+        plt.title('Grid Search Results - Naive Bayes', fontsize=14)
         plt.legend()
         plt.tight_layout()
         plt.show()
 
     #test best model
-    k_opt, clf = best_model
+    k_opt, clf = best_model, GaussianNB()
     df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
-    if True:
+    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    features_test = X_test[:, mask[:-1]]
+    if verbose:
         print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
-        print(f"Best C: {clf.named_steps['logisticregression'].C:.4f}")
         clf.fit(features_selected, y_train_bin)
         plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(X_train, X_test, y_train_bin, y_test_bin, clf, verbose=True)
-    
+    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
 
-    #Naive Bayes------------------------------------------------------------------
 
-    Ks = range(1,50,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
-    Kopt = 11
-    results = []
-    #for k in Ks:
-    df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=Kopt, verbose=False)
-    clf = GaussianNB()
-    # results.append(cross_val_score(clf, features_selected, labels_binary, cv=5))
 
-    # results = [res.mean() for res in results]
-    # plt.figure()
-    # plt.plot(Ks, results)
-    # plt.show()
-    # print("Cross-validation scores:")
-    # print(results[0].mean())
 
-    # model = clf.fit(features_selected, labels_binary)
-    # plot_cf_matrix(features_selected, labels_binary, model, class_names=["Normal", "Arrhythmia"])
-    # test_model_performance(features_selected, labels_binary, clf)
-    
     #Support Vector Machine-------------------------------------------------------
     results = []
     kernels = 'rbf', 'poly', 'sigmoid'
