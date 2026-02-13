@@ -10,21 +10,26 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 
+
+
 def split_test_data(df, target_column="diagnosis", test_size=0.2):
     features = df.drop(columns=[target_column])
     labels = df[target_column]
     
-    # Perform the split and get indices
+    # Perform the split
     X_train, X_test, y_train, y_test = train_test_split(
         features, labels, test_size=test_size, random_state=42
     )
     
-    # Use the indices from the split to create train and test DataFrames
+    # Create DataFrames using original indices
     train_df = df.loc[X_train.index].copy()
-    train_df[target_column] = y_train.values
-
     test_df = df.loc[X_test.index].copy()
-    test_df[target_column] = y_test.values
+    
+    # Convert to numpy arrays
+    X_train = X_train.to_numpy()
+    X_test = X_test.to_numpy()
+    y_train = y_train.to_numpy()
+    y_test = y_test.to_numpy()
 
     return X_train, X_test, y_train, y_test, train_df, test_df
 
@@ -44,7 +49,15 @@ def remove_constant_features(df, target_column="diagnosis", threshold=0):
     
     features_clean_df[target_column] = labels
     
-    return features_clean_df
+    return features_transformed, labels, features_clean_df, selector.get_support()
+
+def drop_features(df, support_mask):
+    support_mask = np.array(list(support_mask)+[True])  # Keep the target column
+    df = df.loc[:, support_mask]  
+    features = df.drop(columns=["diagnosis"]).values
+    labels = df["diagnosis"].values
+
+    return features, labels, df
 
 def plot_cf_matrix(X, y, clf, class_names=None):
     y_pred = clf.predict(X)
@@ -187,7 +200,7 @@ if __name__ == "__main__":
     df = pd.read_csv("./data_arrhythmia.csv", na_values=['?'])
 
     df = handle_missing_data(df, verbose=verbose)
-    df = remove_constant_features(df, "diagnosis", threshold=0)
+    _, _, df, _ = remove_constant_features(df, "diagnosis", threshold=0)
 
     # Plot the distribution of diagnosis labels
     if verbose:
@@ -212,7 +225,11 @@ if __name__ == "__main__":
         print("Distribution of binary labels:")
         print(pd.Series(bin_labels).value_counts())
 
-    X_train, X_test, y_train, y_test, df, test_df = split_test_data(df)
+    X_train, X_test, y_train, y_test, train_df, test_df = split_test_data(df)
+
+    X_train, y_train, train_df, features_support = remove_constant_features(train_df, "diagnosis", threshold=0)
+    X_test, y_test, test_df = drop_features(test_df, features_support)
+
     y_train_bin = np.where(y_train > 1, 1, 0)
     y_test_bin = np.where(y_test > 1, 1, 0)
 
@@ -229,7 +246,7 @@ if __name__ == "__main__":
     best_results = 0.
 
     for k in Ks:
-        df2, features_selected = select_top_features(X_train, y_train_bin, df, heuristic="ANOVA", k=k, verbose=False)
+        df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
 
         param_grid = {
             'logisticregression__C': np.linspace(0.01, 0.4, 100)#[0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1, 5, 10, ]  
@@ -259,33 +276,13 @@ if __name__ == "__main__":
 
     #test best model
     k_opt, clf = best_model
-    df2, features_selected = select_top_features(X_train, y_train_bin, df, heuristic="ANOVA", k=k_opt, verbose=False)
-    best_model = clf.fit(features_selected, y_train_bin)
-    if verbose:
-        plot_cf_matrix(features_selected, y_train_bin, best_model, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(X_train, X_test, y_train_bin, y_test_bin, best_model, verbose=True)
-
-    # results = []
-    # Cs = np.linspace(0.01, 0.035, 50)#[0.1, 0.5, 1.0, 2, 5, 10.0]
-    # Copt = 0.015
-
-    # for C in Cs:
-    #     df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=k, verbose=False)
-    #     pipe = make_pipeline(StandardScaler(), clf)
-    #     results.append(cross_val_score(pipe, features_selected, labels_binary, cv=5))
-
-    # results = [res.mean() for res in results]
-    # plt.figure()
-    # plt.plot(Ks, results, label="C = 0.015")
-    # plt.xlabel("Number of selected features (k)")
-    # plt.ylabel("Cross-validation score")
-    # plt.grid()
-    # plt.legend()
-    # plt.show()
-    # print("Cross-validation scores:")
-    # print(results[0].mean())
-
-    # model = pipe.fit(features_selected, labels_binary)
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
+    if True:
+        print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
+        print(f"Best C: {clf.named_steps['logisticregression'].C:.4f}")
+        clf.fit(features_selected, y_train_bin)
+        plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    test_model_performance(X_train, X_test, y_train_bin, y_test_bin, clf, verbose=True)
     
 
     #Naive Bayes------------------------------------------------------------------
