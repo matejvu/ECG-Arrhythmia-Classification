@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.discriminant_analysis import StandardScaler
 from sklearn.feature_selection import SelectKBest, VarianceThreshold, f_classif, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
@@ -170,8 +171,31 @@ def plot_GridCV_line(results_df, name, best=False):
         plt.plot(C_values.iloc[best_idx], mean_scores.iloc[best_idx], 
                 '*', markersize=15, label=f'Best C={C_values.iloc[best_idx]}')
 
+def plot_GridCV_heatmap(results_df, name):
+    param_columns = [col for col in results_df.columns if col.startswith('param_')]
+    if len(param_columns) < 2:
+        raise ValueError("GridSearchCV results must have at least two hyperparameters to plot a heatmap.")
 
+    param1, param2 = param_columns[:2]  # Use the first two hyperparameters
 
+    # Pivot the DataFrame to create a matrix for the heatmap
+    heatmap_data = results_df.pivot_table(
+        index=param1, 
+        columns=param2, 
+        values='mean_test_score'
+    )
+
+    # Plot the heatmap
+    plt.figure(figsize=(10, 8))
+    ax =sns.heatmap(heatmap_data, annot=True, fmt='.2f', cmap='viridis', cbar=True)
+    ax.set_xticklabels([f"{float(label):.3f}" for label in heatmap_data.columns], rotation=45, ha='right')
+    ax.set_yticklabels([f"{float(label):.3f}" for label in heatmap_data.index], rotation=0)
+    plt.title(f'Grid Search Heatmap - SVC ({name})')
+    plt.xlabel(param2)
+    plt.ylabel(param1)
+    plt.tight_layout()
+    plt.show()
+    
 if __name__ == "__main__":
 
     verbose = False
@@ -271,88 +295,108 @@ if __name__ == "__main__":
 
     #Naive Bayes------------------------------------------------------------------
 
-    verbose = True
+    # verbose = False
 
-    Ks = range(1,250,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
+    # Ks = range(1,250,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
 
-    if verbose:
-        print("<======= NAIVE BAYES =======>")
-        plt.figure(figsize=(10, 6))
+    # if verbose:
+    #     print("<======= NAIVE BAYES =======>")
+    #     plt.figure(figsize=(10, 6))
 
-    best_model = 0
-    best_results = 0.
+    # best_model = 0
+    # best_results = 0.
 
-    for k in Ks:
-        df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
+    # for k in Ks:
+    #     df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
 
-        clf = GaussianNB()
-        scores = cross_val_score(clf, features_selected, y_train_bin, cv=5)
+    #     clf = GaussianNB()
+    #     scores = cross_val_score(clf, features_selected, y_train_bin, cv=5)
 
-        if best_results <= scores.mean():
-            best_results = scores.mean()
-            best_model = k
+    #     if best_results <= scores.mean():
+    #         best_results = scores.mean()
+    #         best_model = k
 
-        if verbose:
-            plot_CV_bar(k, scores)
+    #     if verbose:
+    #         plot_CV_bar(k, scores)
 
-    if verbose:
-        plt.grid(True, alpha=0.3, axis='y')
-        plt.xlabel('$k$', fontsize=12)
-        plt.ylabel('Mean CV Score', fontsize=12)
-        plt.title('Grid Search Results - Naive Bayes', fontsize=14)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    # if verbose:
+    #     plt.grid(True, alpha=0.3, axis='y')
+    #     plt.xlabel('$k$', fontsize=12)
+    #     plt.ylabel('Mean CV Score', fontsize=12)
+    #     plt.title('Grid Search Results - Naive Bayes', fontsize=14)
+    #     plt.legend()
+    #     plt.tight_layout()
+    #     plt.show()
 
-    #test best model
-    k_opt, clf = best_model, GaussianNB()
-    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
-    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
-    features_test = X_test[:, mask[:-1]]
-    if verbose:
-        print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
-        clf.fit(features_selected, y_train_bin)
-        plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
-
-
+    # #test best model
+    # k_opt, clf = best_model, GaussianNB()
+    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
+    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    # features_test = X_test[:, mask[:-1]]
+    # if verbose:
+    #     print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
+    #     clf.fit(features_selected, y_train_bin)
+    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
 
 
     #Support Vector Machine-------------------------------------------------------
-    results = []
-    kernels = 'rbf', 'poly', 'sigmoid'
-    kernel_opt = 'rbf'
-    Cs = np.linspace(0.1, 6, 30)#[0.01, 0.1, 1,3,5, 10]
-    Copt = 0.9
-    Ks = range(50, 120,2)#[1,2,3,5, 10, 20, 50, 100, 200 ]
-    Kopt = 100
+
+    # verbose = False
+
+    # kernels = ['rbf', 'poly', 'sigmoid']
+    # K = 130
     
-    df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=Kopt, verbose=False)
+    # if verbose:
+    #     print("<=========== SVM ===========>")
+
+    # best_model = (0,None)
+    # best_results = 0.
+
+    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=K, verbose=False)
+
+    # param_grid = {
+    #     'rbf' :     { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  },
+    #     'poly' :    { 'svc__C': np.linspace(0.01, 10, 30), 'svc__degree': [2, 3, 4, 5]              },
+    #     'sigmoid' : { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  }
+    # }
 
     # for kernel in kernels:
-    # for k in Ks:
-    #     df2, features_selected = select_top_features(features, labels_binary, df, heuristic="ANOVA", k=k, verbose=False)
-    #     r = []
-    #     # for C in Cs:
-    clf = SVC(kernel=kernel_opt, C=Copt)
-    pipe = make_pipeline(StandardScaler(), clf)
-    #     r.append(cross_val_score(pipe, features_selected, labels_binary, cv=5))
-    #     results.append(r[0])
 
-    # results = [res.mean() for res in results]
-    # plt.figure()
-    # for ind, r in enumerate(results):
-        # r = [r.mean() for r in r]
-        # plt.plot(Cs, r, label=f'kernel: {kernels[ind]}')
-    # plt.plot(Ks, results)
-    # plt.legend()
-    # plt.show()
-    # print("Cross-validation scores:")
-    # print(results[0].mean())
+    #     clf = SVC(kernel=kernel, max_iter=10000)
+    #     pipe = make_pipeline(StandardScaler(), clf)
 
-    model = pipe.fit(features_selected, labels_binary)
-    plot_cf_matrix(features_selected, labels_binary, model, class_names=["Normal", "Arrhythmia"])
-    test_model_performance(features_selected, labels_binary, pipe)
+    #     grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid[kernel], cv=5)
+    #     grid_search.fit(features_selected, y_train_bin)
+    #     results_df = pd.DataFrame(grid_search.cv_results_)
+
+    #     if best_results <= grid_search.best_score_:
+    #         best_results = grid_search.best_score_
+    #         best_model = (kernel, grid_search.best_estimator_)
+
+    #     if verbose:
+    #         plot_GridCV_heatmap(results_df, name=kernel)
+
+    # #test best model
+    # kernel_opt, clf = best_model
+
+    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    # features_test = X_test[:, mask[:-1]]
+    # if verbose:
+    #     print(f"Best kernel: {kernel_opt}, Best CV Score: {best_results:.4f}")
+    #     print(f"Best C: {clf.named_steps['svc'].C:.4f}")
+    #     if kernel_opt in ['rbf', 'sigmoid']:
+    #         print(f"Best gamma: {clf.named_steps['svc'].gamma:.4f}")
+    #     else:
+    #         print(f"Best degree: {clf.named_steps['svc'].degree:.4f}")
+
+    #     clf.fit(features_selected, y_train_bin)
+    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
+
+
+    #Ensamble Methods-------------------------------------------------------------
+
 
 
 
