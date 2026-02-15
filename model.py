@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.discriminant_analysis import StandardScaler
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.feature_selection import SelectKBest, VarianceThreshold, f_classif, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, precision_score, recall_score, accuracy_score
@@ -10,6 +11,9 @@ from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_sp
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
+import xgboost as xgb
+from xgboost import XGBClassifier
+from xgboost.callback import EarlyStopping
 
 
 
@@ -397,8 +401,178 @@ if __name__ == "__main__":
 
     #Ensamble Methods-------------------------------------------------------------
 
+    verbose = True
+
+    #K = 120
+    Ks = [20, 25, 30]#,35,40,45,50,55,60]#[50, 75, 100, 150, 200, 250]
+    if verbose:
+        print("<=========== XGBoost ===========>")
+    
+    best_model = None
+    best_result = 0.
+
+    for K in Ks:
+    
+        X_train_split, X_val_split, y_train_split, y_val_split, train_df_split, val_df_split \
+            = split_test_data(train_df, target_column="diagnosis", test_size=0.2)
+        
+
+        X_train_split, y_train_split, train_df_split, features_support = remove_constant_features(train_df_split, "diagnosis", threshold=0)
+        X_val_split, y_val_split, val_df_split = drop_features(val_df_split, features_support)
+        X_test_split, y_test_split, test_df_split = drop_features(test_df, features_support)
+        
+        y_train_split_bin = np.where(y_train_split > 1, 1, 0)
+        y_val_split_bin = np.where(y_val_split > 1, 1, 0)
+
+        df2, features_selected = select_top_features(X_train_split, y_train_split, train_df_split, heuristic="ANOVA", k=K, verbose=False)
+        mask = np.array([True if col in df2.columns else False for col in test_df_split.columns])
+
+        features_test = X_test_split[:, mask[:-1]]
+        features_val = X_val_split[:, mask[:-1]]
 
 
+        # Model
+
+        # param_grid = {
+        #     "max_depth": [3, 4, 5, 6, 7],
+        #     "learning_rate": [0.02, 0.05, 0.1],
+        #     "subsample": [0.7, 0.9, 0.99],
+        #     "colsample_bytree": [0.7,0.85, 1.0],
+        #     "reg_alpha": [0.2, 0.5],
+        #     "reg_lambda": [0.05, 0.2, 1 ]
+        # }
+        param_grid = {
+            "max_depth": [ 4,5, 6, 7],
+            "learning_rate": [ 0.01, 0.04, 0.09, 0.2, 0.3],
+            "subsample": [0.9, 0.95],
+            "colsample_bytree": [0.85,0.9, 1.0],
+            "reg_alpha": [0.2,0.35, 0.5,0.6, 0.7],
+            "reg_lambda": [0.04,0.05,0.07,0.09,0.11]
+        }
+
+
+        # param_grid = {
+        #     "max_depth": [3,4,5,6],
+        #     "learning_rate": [0.03,0.05,0.1],
+        #     "subsample": [0.7,0.9],
+        #     "colsample_bytree": [0.7,0.9],
+        #     "reg_alpha": [0,0.1,0.5],
+        #     "reg_lambda": [1,5,10]
+        # }
+        # param_grid = {'colsample_bytree': [0.7], 'learning_rate':[0.1], 'max_depth': [5], 'reg_alpha': [0.5], 'reg_lambda': [1], 'subsample': [0.9]}
+
+
+        model = XGBClassifier(
+            n_estimators=2000,#1000
+            # max_depth=3,
+            # max_leaves=3, 
+            # reg_alpha = 0.1,
+            # reg_lambda = 0.05,
+            # gamma = 0,
+            # min_child_weight = 1,
+            # learning_rate=0.01,
+            eval_metric="error",
+            tree_method="hist",
+            early_stopping_rounds=70#40
+        )
+
+        grid = GridSearchCV(
+            model,
+            param_grid,
+            scoring="accuracy",
+            cv=5,
+            verbose=1,
+            n_jobs=-1
+        )
+
+        
+        # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=K, verbose=False) 
+        # print(features_selected.shape)
+        # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+        # features_test = X_test[:, mask[:-1]]
+
+        grid.fit(features_selected, y_train_split_bin,
+                eval_set=[(features_val, y_val_split_bin)],
+                verbose=0)
+        print(f'K = {K}')
+    # scores = cross_val_score(model, features_selected, y_train_split_bin, cv=5, scoring="accuracy")
+        print('\t', grid.best_params_)
+
+        print('\t', grid.best_score_)
+
+        if best_result <= grid.best_score_:
+            best_result = grid.best_score_
+            best_model = (K, grid.best_estimator_.best_iteration, grid.best_estimator_)
+    
+    
+    print(best_model)
+    Kopt, iter, best_model = best_model
+    # # Or if you want to be explicit:
+    # best_model.set_params(n_estimators=15)
+
+    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, best_model, verbose=True)
+    # test_model_performance(features_selected, features_test, y_train_split_bin, y_test_bin, best_model, verbose=True)
+    
+
+
+    # Train
+    best_model.fit(
+        features_selected,
+        y_train_split_bin,
+        eval_set=[
+            (features_selected, y_train_split_bin),
+            # (features_test, y_test_bin)
+            (features_val, y_val_split_bin)
+        ],
+        verbose=False
+    )
+
+    # Results
+    results = best_model.evals_result()
+    epochs = len(results['validation_0']['error'])
+    x_axis = range(epochs)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(x_axis, results['validation_0']['error'], label='Train')
+    ax.plot(x_axis, results['validation_1']['error'], label='Validation')
+
+    ax.legend()
+    plt.ylabel('Accuracy Score')
+    plt.xlabel('Iterations (n_estimators)')
+    plt.title('XGBoost Training Process')
+
+
+
+
+    y_pred = best_model.predict(features_test)
+    acc = accuracy_score(y_test_bin, y_pred)
+    precision = precision_score(y_test_bin, y_pred, zero_division=0)
+    recall = recall_score(y_test_bin, y_pred, zero_division=0)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-10)
+    if verbose:
+        print(f"//=====TEST SCORES====\\\\")
+        print(f"|| Accuracy : {acc:.4f}  ||")
+        print(f"|| Precision: {precision:.4f}  ||")
+        print(f"|| Recall   : {recall:.4f}  ||")
+        print(f"|| F1 Score : {f1:.4f}  ||")
+        print(f"\\\\====================//")
+
+    
+
+    # bst = xgb.train(params, dtrain, num_round, evals=evallist, evals_result=evals_result)
+
+    # # Plotting the metrics (example assumes 'validation_0' and 'logloss' in evals_result)
+    # plt.plot(evals_result['validation_0']['logloss'], label='train loss')
+    # plt.plot(evals_result['validation_1']['logloss'], label='validation loss')
+    # plt.legend()
+    # plt.show()
+    
+    plt.show()
+    best_model.set_params(n_estimators=iter)
+    best_model.set_params(early_stopping_rounds = None)
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=Kopt, verbose=False)
+    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, best_model, verbose=True)
 
     #MULTICLASS PROBLEM
 
