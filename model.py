@@ -7,14 +7,14 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.feature_selection import SelectKBest, VarianceThreshold, f_classif, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, precision_score, recall_score, accuracy_score
-from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold, cross_val_score, train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 import xgboost as xgb
 from xgboost import XGBClassifier
 from xgboost.callback import EarlyStopping
-
+from scipy.stats import randint, uniform, loguniform
 
 
 def split_test_data(df, target_column="diagnosis", test_size=0.2):
@@ -401,10 +401,144 @@ if __name__ == "__main__":
 
     #Ensamble Methods-------------------------------------------------------------
 
+
+
+    
+    # X_train_split, X_val_split, y_train_split, y_val_split, train_df_split, val_df_split \
+    #     = split_test_data(train_df, target_column="diagnosis", test_size=0.2)
+    # X_train_split, y_train_split, train_df_split, features_support = remove_constant_features(train_df_split, "diagnosis", threshold=0)
+    # X_val_split, y_val_split, val_df_split = drop_features(val_df_split, features_support)
+    # X_test_split, y_test_split, test_df_split = drop_features(test_df, features_support)
+    
+    # y_train_split_bin = np.where(y_train_split > 1, 1, 0)
+    # y_val_split_bin = np.where(y_val_split > 1, 1, 0)
+
+    #OVO NE
+    # df2, features_selected = select_top_features(X_train_split, y_train_split, train_df_split, heuristic="ANOVA", k=K, verbose=False)
+    # mask = np.array([True if col in df2.columns else False for col in test_df_split.columns])
+
+    # features_test = X_test_split#[:, mask[:-1]]
+    # features_val = X_val_split#[:, mask[:-1]]
+
+    # ====================================================
+    # MODEL
+    # ====================================================
+    xgb = XGBClassifier(
+        # n_estimators=2000,
+        eval_metric="error",
+        tree_method="hist",
+        # early_stopping_rounds=100,
+        random_state=42,
+        n_jobs=-1
+    )
+
+    # ====================================================
+    # PIPELINE
+    # ====================================================
+    pipe = make_pipeline(
+        VarianceThreshold(),
+        SelectKBest(score_func=f_classif),
+        xgb
+    )
+
+    # ====================================================
+    # RANDOM SEARCH SPACE
+    # ====================================================
+    param_dist = {
+        # feature selection
+        "selectkbest__k": randint(20, 200),
+
+        # xgb params
+        "xgbclassifier__n_estimators": randint(3, 150),
+        "xgbclassifier__max_depth": randint(3, 8),
+        "xgbclassifier__learning_rate": loguniform(0.01, 0.3),
+        "xgbclassifier__subsample": uniform(0.7, 0.3),
+        "xgbclassifier__colsample_bytree": uniform(0.5, 0.5),
+        "xgbclassifier__reg_alpha": loguniform(1e-3, 3.0),
+        "xgbclassifier__reg_lambda": loguniform(1e-3, 3.0),
+    }
+
+    # ====================================================
+    # CV STRATEGY
+    # ====================================================
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42
+    )
+
+    # ====================================================
+    # RANDOM SEARCH
+    # ====================================================
+    search = RandomizedSearchCV(
+        estimator=pipe,
+        param_distributions=param_dist,
+        n_iter=3000,
+        scoring="accuracy",
+        cv=cv,
+        verbose=1,
+        random_state=42,
+        n_jobs=-1,
+        refit=True
+    )
+
+    # ====================================================
+    # FIT WITH EARLY STOPPING
+    # ====================================================
+    search.fit(
+        X_train,#_split,
+        y_train_bin,
+        # y_train_split_bin,
+        # xgbclassifier__eval_set=[(X_val_split, y_val_split)],
+        xgbclassifier__verbose=False
+    )
+
+    # ====================================================
+    # RESULTS
+    # ====================================================
+    print("Best score:", search.best_score_)
+    print("Best params:")
+    print(search.best_params_)
+
+    best_model = search.best_estimator_
+
+    best_model.fit(
+        X_train,#_split,
+        y_train_bin,
+        # y_train_split_bin,
+        # xgbclassifier__eval_set=[(X_val_split, y_val_split)],
+        xgbclassifier__verbose=False
+    )
+
+    y_pred = best_model.predict(X_test)
+
+    # y_pred = best_model.predict(features_test)
+    acc = accuracy_score(y_test_bin, y_pred)
+    precision = precision_score(y_test_bin, y_pred, zero_division=0)
+    recall = recall_score(y_test_bin, y_pred, zero_division=0)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-10)
+
+    if True:
+        print(f"//=====TEST SCORES====\\\\")
+        print(f"|| Accuracy : {acc:.4f}  ||")
+        print(f"|| Precision: {precision:.4f}  ||")
+        print(f"|| Recall   : {recall:.4f}  ||")
+        print(f"|| F1 Score : {f1:.4f}  ||")
+        print(f"\\\\====================//")
+
+    plot_cf_matrix(X_train, y_train_bin, best_model, class_names=["Normal", "Arrhythmia"])
+
+    if 2+3>-1:
+        exit()
+
+
+
+
+    #NESAMBLE
     verbose = True
 
     #K = 120
-    Ks = [20, 25, 30]#,35,40,45,50,55,60]#[50, 75, 100, 150, 200, 250]
+    Ks = [20]#,35,40,45,50,55,60]#[50, 75, 100, 150, 200, 250]
     if verbose:
         print("<=========== XGBoost ===========>")
     
@@ -473,7 +607,7 @@ if __name__ == "__main__":
             # learning_rate=0.01,
             eval_metric="error",
             tree_method="hist",
-            early_stopping_rounds=70#40
+            early_stopping_rounds=100#40
         )
 
         grid = GridSearchCV(
@@ -499,6 +633,7 @@ if __name__ == "__main__":
         print('\t', grid.best_params_)
 
         print('\t', grid.best_score_)
+        print('\t', grid.best_estimator_.best_iteration)
 
         if best_result <= grid.best_score_:
             best_result = grid.best_score_
@@ -513,16 +648,23 @@ if __name__ == "__main__":
     # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, best_model, verbose=True)
     # test_model_performance(features_selected, features_test, y_train_split_bin, y_test_bin, best_model, verbose=True)
     
+    print(features_selected.shape)
+    best_model.set_params(n_estimators=iter)
+    best_model.set_params(early_stopping_rounds = None)
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=Kopt, verbose=False)
+    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    features_test_2 = X_test[:, mask[:-1]]
 
 
     # Train
+    print(features_selected.shape, features_test_2.shape)
     best_model.fit(
         features_selected,
-        y_train_split_bin,
+        y_train_bin,
         eval_set=[
-            (features_selected, y_train_split_bin),
-            # (features_test, y_test_bin)
-            (features_val, y_val_split_bin)
+            (features_selected, y_train_bin),
+            (features_test_2, y_test_bin)
+            # (features_val, y_val_split_bin)
         ],
         verbose=False
     )
@@ -545,7 +687,7 @@ if __name__ == "__main__":
 
 
 
-    y_pred = best_model.predict(features_test)
+    y_pred = best_model.predict(features_test_2)
     acc = accuracy_score(y_test_bin, y_pred)
     precision = precision_score(y_test_bin, y_pred, zero_division=0)
     recall = recall_score(y_test_bin, y_pred, zero_division=0)
@@ -569,11 +711,9 @@ if __name__ == "__main__":
     # plt.show()
     
     plt.show()
-    best_model.set_params(n_estimators=iter)
-    best_model.set_params(early_stopping_rounds = None)
-    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=Kopt, verbose=False)
-    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, best_model, verbose=True)
-
+    
+    
+    # test_model_performance(features_selected, features_test_2, y_train_bin, y_test_bin, best_model, verbose=True)
     #MULTICLASS PROBLEM
 
 
