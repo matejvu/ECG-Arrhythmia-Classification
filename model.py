@@ -402,27 +402,6 @@ if __name__ == "__main__":
     #Ensamble Methods-------------------------------------------------------------
 
 
-
-    
-    # X_train_split, X_val_split, y_train_split, y_val_split, train_df_split, val_df_split \
-    #     = split_test_data(train_df, target_column="diagnosis", test_size=0.2)
-    # X_train_split, y_train_split, train_df_split, features_support = remove_constant_features(train_df_split, "diagnosis", threshold=0)
-    # X_val_split, y_val_split, val_df_split = drop_features(val_df_split, features_support)
-    # X_test_split, y_test_split, test_df_split = drop_features(test_df, features_support)
-    
-    # y_train_split_bin = np.where(y_train_split > 1, 1, 0)
-    # y_val_split_bin = np.where(y_val_split > 1, 1, 0)
-
-    #OVO NE
-    # df2, features_selected = select_top_features(X_train_split, y_train_split, train_df_split, heuristic="ANOVA", k=K, verbose=False)
-    # mask = np.array([True if col in df2.columns else False for col in test_df_split.columns])
-
-    # features_test = X_test_split#[:, mask[:-1]]
-    # features_val = X_val_split#[:, mask[:-1]]
-
-    # ====================================================
-    # MODEL
-    # ====================================================
     xgb = XGBClassifier(
         # n_estimators=2000,
         eval_metric="error",
@@ -432,18 +411,12 @@ if __name__ == "__main__":
         n_jobs=-1
     )
 
-    # ====================================================
-    # PIPELINE
-    # ====================================================
     pipe = make_pipeline(
         VarianceThreshold(),
         SelectKBest(score_func=f_classif),
         xgb
     )
 
-    # ====================================================
-    # RANDOM SEARCH SPACE
-    # ====================================================
     param_dist = {
         # feature selection
         "selectkbest__k": randint(20, 200),
@@ -458,18 +431,12 @@ if __name__ == "__main__":
         "xgbclassifier__reg_lambda": loguniform(1e-3, 3.0),
     }
 
-    # ====================================================
-    # CV STRATEGY
-    # ====================================================
     cv = StratifiedKFold(
         n_splits=5,
         shuffle=True,
         random_state=42
     )
 
-    # ====================================================
-    # RANDOM SEARCH
-    # ====================================================
     search = RandomizedSearchCV(
         estimator=pipe,
         param_distributions=param_dist,
@@ -482,20 +449,12 @@ if __name__ == "__main__":
         refit=True
     )
 
-    # ====================================================
-    # FIT WITH EARLY STOPPING
-    # ====================================================
     search.fit(
-        X_train,#_split,
+        X_train,
         y_train_bin,
-        # y_train_split_bin,
-        # xgbclassifier__eval_set=[(X_val_split, y_val_split)],
         xgbclassifier__verbose=False
     )
 
-    # ====================================================
-    # RESULTS
-    # ====================================================
     print("Best score:", search.best_score_)
     print("Best params:")
     print(search.best_params_)
@@ -503,16 +462,14 @@ if __name__ == "__main__":
     best_model = search.best_estimator_
 
     best_model.fit(
-        X_train,#_split,
+        X_train,
         y_train_bin,
-        # y_train_split_bin,
-        # xgbclassifier__eval_set=[(X_val_split, y_val_split)],
         xgbclassifier__verbose=False
     )
 
     y_pred = best_model.predict(X_test)
 
-    # y_pred = best_model.predict(features_test)
+    
     acc = accuracy_score(y_test_bin, y_pred)
     precision = precision_score(y_test_bin, y_pred, zero_division=0)
     recall = recall_score(y_test_bin, y_pred, zero_division=0)
