@@ -245,159 +245,159 @@ if __name__ == "__main__":
 
     #Logistic Regression----------------------------------------------------------
     
-    # verbose = False
+    verbose = False
 
-    # Ks = range(99, 160, 10)#range(1,250, 49)
+    Ks = range(99, 160, 10)#range(1,250, 49)
 
-    # if verbose:
-    #     print("<====== LOGISTIC REG. ======>")
-    #     plt.figure(figsize=(10, 6))
+    if verbose:
+        print("<====== LOGISTIC REG. ======>")
+        plt.figure(figsize=(10, 6))
 
-    # best_model = (0,None)
-    # best_results = 0.
+    best_model = (0,None)
+    best_results = 0.
 
-    # for k in Ks:
-    #     df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
+    for k in Ks:
+        df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
 
-    #     param_grid = {
-    #         'logisticregression__C': np.linspace(0.01, 0.4, 100)#[0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1, 5, 10, ]  
-    #     }
-    #     clf = LogisticRegression(random_state=42, penalty='l2', max_iter=1000)
-    #     pipe = make_pipeline(StandardScaler(), clf)
+        param_grid = {
+            'logisticregression__C': np.linspace(0.01, 0.4, 100)#[0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1, 5, 10, ]  
+        }
+        clf = LogisticRegression(random_state=42, penalty='l2', max_iter=1000)
+        pipe = make_pipeline(StandardScaler(), clf)
 
-    #     grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid, cv=5)
-    #     grid_search.fit(features_selected, y_train_bin)
-    #     results_df = pd.DataFrame(grid_search.cv_results_)
+        grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid, cv=5)
+        grid_search.fit(features_selected, y_train_bin)
+        results_df = pd.DataFrame(grid_search.cv_results_)
 
-    #     if best_results <= grid_search.best_score_:
-    #         best_results = grid_search.best_score_
-    #         best_model = (k, grid_search.best_estimator_)
+        if best_results <= grid_search.best_score_:
+            best_results = grid_search.best_score_
+            best_model = (k, grid_search.best_estimator_)
 
-    #     if verbose:
-    #         plot_GridCV_line(results_df, name=f"k = {k}", best = False)
+        if verbose:
+            plot_GridCV_line(results_df, name=f"k = {k}", best = False)
 
-    # if verbose:
-    #     plt.xlabel('$C$', fontsize=12)
-    #     plt.ylabel('Mean CV Score', fontsize=12)
-    #     plt.title('Grid Search Results - Logistic Regression', fontsize=14)
-    #     plt.grid(True, alpha=0.3)
-    #     plt.legend()
-    #     plt.tight_layout()
-    #     plt.show()
+    if verbose:
+        plt.xlabel('$C$', fontsize=12)
+        plt.ylabel('Mean CV Score', fontsize=12)
+        plt.title('Grid Search Results - Logistic Regression', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
-    # #test best model
-    # k_opt, clf = best_model
-    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
-    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
-    # features_test = X_test[:, mask[:-1]]
-    # if verbose:
-    #     print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
-    #     print(f"Best C: {clf.named_steps['logisticregression'].C:.4f}")
-    #     clf.fit(features_selected, y_train_bin)
-    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
-    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
+    #test best model
+    k_opt, clf = best_model
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
+    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    features_test = X_test[:, mask[:-1]]
+    if verbose:
+        print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
+        print(f"Best C: {clf.named_steps['logisticregression'].C:.4f}")
+        clf.fit(features_selected, y_train_bin)
+        plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
     
 
     #Naive Bayes------------------------------------------------------------------
 
-    # verbose = False
+    verbose = False
 
-    # Ks = range(1,250,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
+    Ks = range(1,250,1)#[1,2,3,5, 10, 20, 50, 100, 200 ]
 
-    # if verbose:
-    #     print("<======= NAIVE BAYES =======>")
-    #     plt.figure(figsize=(10, 6))
+    if verbose:
+        print("<======= NAIVE BAYES =======>")
+        plt.figure(figsize=(10, 6))
 
-    # best_model = 0
-    # best_results = 0.
+    best_model = 0
+    best_results = 0.
 
-    # for k in Ks:
-    #     df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
+    for k in Ks:
+        df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k, verbose=False)
 
-    #     clf = GaussianNB()
-    #     scores = cross_val_score(clf, features_selected, y_train_bin, cv=5)
+        clf = GaussianNB()
+        scores = cross_val_score(clf, features_selected, y_train_bin, cv=5)
 
-    #     if best_results <= scores.mean():
-    #         best_results = scores.mean()
-    #         best_model = k
+        if best_results <= scores.mean():
+            best_results = scores.mean()
+            best_model = k
 
-    #     if verbose:
-    #         plot_CV_bar(k, scores)
+        if verbose:
+            plot_CV_bar(k, scores)
 
-    # if verbose:
-    #     plt.grid(True, alpha=0.3, axis='y')
-    #     plt.xlabel('$k$', fontsize=12)
-    #     plt.ylabel('Mean CV Score', fontsize=12)
-    #     plt.title('Grid Search Results - Naive Bayes', fontsize=14)
-    #     plt.legend()
-    #     plt.tight_layout()
-    #     plt.show()
+    if verbose:
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.xlabel('$k$', fontsize=12)
+        plt.ylabel('Mean CV Score', fontsize=12)
+        plt.title('Grid Search Results - Naive Bayes', fontsize=14)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
-    # #test best model
-    # k_opt, clf = best_model, GaussianNB()
-    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
-    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
-    # features_test = X_test[:, mask[:-1]]
-    # if verbose:
-    #     print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
-    #     clf.fit(features_selected, y_train_bin)
-    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
-    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
+    #test best model
+    k_opt, clf = best_model, GaussianNB()
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=k_opt, verbose=False)
+    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    features_test = X_test[:, mask[:-1]]
+    if verbose:
+        print(f"Best k: {k_opt}, Best CV Score: {best_results:.4f}")
+        clf.fit(features_selected, y_train_bin)
+        plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
 
 
     #Support Vector Machine-------------------------------------------------------
 
-    # verbose = False
+    verbose = False
 
-    # kernels = ['rbf', 'poly', 'sigmoid']
-    # K = 130
+    kernels = ['rbf', 'poly', 'sigmoid']
+    K = 130
     
-    # if verbose:
-    #     print("<=========== SVM ===========>")
+    if verbose:
+        print("<=========== SVM ===========>")
 
-    # best_model = (0,None)
-    # best_results = 0.
+    best_model = (0,None)
+    best_results = 0.
 
-    # df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=K, verbose=False)
+    df2, features_selected = select_top_features(X_train, y_train_bin, train_df, heuristic="ANOVA", k=K, verbose=False)
 
-    # param_grid = {
-    #     'rbf' :     { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  },
-    #     'poly' :    { 'svc__C': np.linspace(0.01, 10, 30), 'svc__degree': [2, 3, 4, 5]              },
-    #     'sigmoid' : { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  }
-    # }
+    param_grid = {
+        'rbf' :     { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  },
+        'poly' :    { 'svc__C': np.linspace(0.01, 10, 30), 'svc__degree': [2, 3, 4, 5]              },
+        'sigmoid' : { 'svc__C': np.linspace(0.01, 10, 30), 'svc__gamma': np.linspace(0.0001, 0.03, 30)  }
+    }
 
-    # for kernel in kernels:
+    for kernel in kernels:
 
-    #     clf = SVC(kernel=kernel, max_iter=10000)
-    #     pipe = make_pipeline(StandardScaler(), clf)
+        clf = SVC(kernel=kernel, max_iter=10000)
+        pipe = make_pipeline(StandardScaler(), clf)
 
-    #     grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid[kernel], cv=5)
-    #     grid_search.fit(features_selected, y_train_bin)
-    #     results_df = pd.DataFrame(grid_search.cv_results_)
+        grid_search = GridSearchCV(estimator=pipe, param_grid=param_grid[kernel], cv=5)
+        grid_search.fit(features_selected, y_train_bin)
+        results_df = pd.DataFrame(grid_search.cv_results_)
 
-    #     if best_results <= grid_search.best_score_:
-    #         best_results = grid_search.best_score_
-    #         best_model = (kernel, grid_search.best_estimator_)
+        if best_results <= grid_search.best_score_:
+            best_results = grid_search.best_score_
+            best_model = (kernel, grid_search.best_estimator_)
 
-    #     if verbose:
-    #         plot_GridCV_heatmap(results_df, name=kernel)
+        if verbose:
+            plot_GridCV_heatmap(results_df, name=kernel)
 
-    # #test best model
-    # kernel_opt, clf = best_model
+    #test best model
+    kernel_opt, clf = best_model
 
-    # mask = np.array([True if col in df2.columns else False for col in test_df.columns])
-    # features_test = X_test[:, mask[:-1]]
-    # if verbose:
-    #     print(f"Best kernel: {kernel_opt}, Best CV Score: {best_results:.4f}")
-    #     print(f"Best C: {clf.named_steps['svc'].C:.4f}")
-    #     if kernel_opt in ['rbf', 'sigmoid']:
-    #         print(f"Best gamma: {clf.named_steps['svc'].gamma:.4f}")
-    #     else:
-    #         print(f"Best degree: {clf.named_steps['svc'].degree:.4f}")
+    mask = np.array([True if col in df2.columns else False for col in test_df.columns])
+    features_test = X_test[:, mask[:-1]]
+    if verbose:
+        print(f"Best kernel: {kernel_opt}, Best CV Score: {best_results:.4f}")
+        print(f"Best C: {clf.named_steps['svc'].C:.4f}")
+        if kernel_opt in ['rbf', 'sigmoid']:
+            print(f"Best gamma: {clf.named_steps['svc'].gamma:.4f}")
+        else:
+            print(f"Best degree: {clf.named_steps['svc'].degree:.4f}")
 
-    #     clf.fit(features_selected, y_train_bin)
-    #     plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
-    # test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
+        clf.fit(features_selected, y_train_bin)
+        plot_cf_matrix(features_selected, y_train_bin, clf, class_names=["Normal", "Arrhythmia"])
+    test_model_performance(features_selected, features_test, y_train_bin, y_test_bin, clf, verbose=verbose)
 
 
     #Ensamble Methods-------------------------------------------------------------
