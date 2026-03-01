@@ -14,6 +14,7 @@ from sklearn.svm import SVC
 import xgboost as xgb
 from xgboost import XGBClassifier
 from xgboost.callback import EarlyStopping
+from xgboost import plot_importance 
 from scipy.stats import randint, uniform, loguniform
 
 
@@ -461,6 +462,21 @@ if __name__ == "__main__":
 
     best_model = search.best_estimator_
 
+
+    #==============================
+    # best_params = {
+    #     'selectkbest__k': 135,
+    #     'xgbclassifier__colsample_bytree': np.float64(0.6439726713379963),
+    #     'xgbclassifier__learning_rate': np.float64(0.053450809028950184),
+    #     'xgbclassifier__max_depth': 4,
+    #     'xgbclassifier__n_estimators': 112,
+    #     'xgbclassifier__reg_alpha': np.float64(0.11820864417681204),
+    #     'xgbclassifier__reg_lambda': np.float64(0.03224986681192241),
+    #     'xgbclassifier__subsample': np.float64(0.7493216587236635)
+    # }
+    # best_model = pipe.set_params(**best_params)
+    #==============================
+
     best_model.fit(
         X_train,
         y_train_bin,
@@ -485,3 +501,29 @@ if __name__ == "__main__":
 
     plot_cf_matrix(X_train, y_train_bin, best_model, class_names=["Normal", "Arrhythmia"])
 
+
+    top_n = 10
+
+    xgb_model = best_model.named_steps["xgbclassifier"]
+
+    selector = best_model.named_steps["selectkbest"]
+    mask = selector.get_support()
+    # Exclude the target column when applying the mask
+    feature_columns = train_df.drop(columns=["diagnosis"]).columns
+    selected_feature_names = feature_columns[mask]
+    # selected_feature_names = train_df.columns[mask]
+
+    xgb_model.get_booster().feature_names = list(selected_feature_names)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    plot_importance(
+        xgb_model,
+        ax=ax,
+        importance_type="gain",
+        max_num_features=top_n,
+        show_values=False
+    )
+
+    plt.title(f"Top {top_n} Most Important Features")
+    plt.show()
